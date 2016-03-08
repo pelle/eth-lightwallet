@@ -170,12 +170,12 @@ module.exports = {
 }).call(this,require("buffer").Buffer)
 },{"buffer":162,"ethereumjs-util":255,"tweetnacl":320}],3:[function(require,module,exports){
 (function (Buffer){
-var CryptoJS = require('crypto-js');
+var EthUtil = require('ethereumjs-util');
 var Transaction = require('ethereumjs-tx');
 var EC = require('elliptic').ec;
 var ec = new EC('secp256k1');
 var bitcore = require('bitcore-lib');
-var Random = bitcore.crypto.Random;
+// var Random = bitcore.crypto.Random;
 var Hash = bitcore.crypto.Hash;
 var Mnemonic = require('bitcore-mnemonic');
 var nacl = require('tweetnacl');
@@ -326,11 +326,10 @@ KeyStore._computeAddressFromPrivKey = function (privKey) {
   keyPair._importPrivate(privKey, 'hex');
   var compact = false;
   var pubKey = keyPair.getPublic(compact, 'hex').slice(2);
-  var pubKeyWordArray = CryptoJS.enc.Hex.parse(pubKey);
-  var hash = CryptoJS.SHA3(pubKeyWordArray, { outputLength: 256 });
-  var address = hash.toString(CryptoJS.enc.Hex).slice(24);
+  var pubKeyWordArray = new Buffer(pubKey, 'hex');
+  var hash = EthUtil.sha3(pubKeyWordArray).toString('hex');
 
-  return address;
+  return hash.slice(24);
 };
 
 KeyStore._computePubkeyFromPrivKey = function (privKey, curve) {
@@ -464,7 +463,7 @@ KeyStore.generateRandomSeed = function(extraEntropy) {
   }
   else if (typeof extraEntropy === 'string') {
     var entBuf = new Buffer(extraEntropy);
-    var randBuf = Random.getRandomBuffer(256 / 8);
+    var randBuf =  nacl.randomBytes(256 / 8);
     var hashedEnt = this._concatAndSha256(randBuf, entBuf).slice(0, 128 / 8);
     seed = new Mnemonic(hashedEnt, Mnemonic.Words.ENGLISH);
   }
@@ -718,7 +717,7 @@ KeyStore.prototype.signTransaction = function (txParams, callback) {
 module.exports = KeyStore;
 
 }).call(this,require("buffer").Buffer)
-},{"./encryption":2,"./signing":4,"bitcore-lib":25,"bitcore-mnemonic":104,"buffer":162,"crypto-js":198,"elliptic":235,"ethereumjs-tx":254,"scrypt-async":304,"tweetnacl":320}],4:[function(require,module,exports){
+},{"./encryption":2,"./signing":4,"bitcore-lib":25,"bitcore-mnemonic":104,"buffer":162,"elliptic":235,"ethereumjs-tx":254,"ethereumjs-util":255,"scrypt-async":304,"tweetnacl":320}],4:[function(require,module,exports){
 (function (Buffer){
 var Transaction = require("ethereumjs-tx")
 var util = require("ethereumjs-util")
@@ -794,9 +793,9 @@ module.exports.concatSig = concatSig;
 },{"buffer":162,"ethereumjs-tx":254,"ethereumjs-util":255}],5:[function(require,module,exports){
 (function (Buffer){
 var Transaction = require('ethereumjs-tx');
+var EthUtil = require('ethereumjs-util');
 var coder = require('web3/lib/solidity/coder');
-var rlp = require('rlp');
-var CryptoJS = require('crypto-js');
+var rlp = EthUtil.rlp;
 
 function add0x (input) {
   if (typeof(input) !== 'string') {
@@ -813,7 +812,7 @@ function add0x (input) {
 function _encodeFunctionTxData (functionName, types, args) {
 
   var fullName = functionName + '(' + types.join() + ')';
-  var signature = CryptoJS.SHA3(fullName, { outputLength: 256 }).toString(CryptoJS.enc.Hex).slice(0, 8);
+  var signature = EthUtil.sha3(fullName).toString('hex').slice(0, 8);
   var dataHex = signature + coder.encodeParams(types, args);
 
   return dataHex;
@@ -852,9 +851,8 @@ function functionTx (abi, functionName, args, txObject) {
 }
 
 function createdContractAddress (fromAddress, nonce) {
-  var rlpEncodedHex = rlp.encode([new Buffer(fromAddress, 'hex'), nonce]).toString('hex');
-  var rlpEncodedWordArray = CryptoJS.enc.Hex.parse(rlpEncodedHex);
-  var hash = CryptoJS.SHA3(rlpEncodedWordArray, {outputLength: 256}).toString(CryptoJS.enc.Hex);
+  var rlpEncoded = rlp.encode([new Buffer(fromAddress, 'hex'), nonce]);
+  var hash = EthUtil.sha3(rlpEncoded).toString('hex');
 
   return hash.slice(24);
 }
@@ -901,8 +899,11 @@ module.exports = {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":162,"crypto-js":198,"ethereumjs-tx":254,"rlp":344,"web3/lib/solidity/coder":330}],6:[function(require,module,exports){
-var CryptoJS = require('crypto-js');
+},{"buffer":162,"ethereumjs-tx":254,"ethereumjs-util":255,"web3/lib/solidity/coder":330}],6:[function(require,module,exports){
+var AES = require('crypto-js/aes');
+var PBKDF2 = require('crypto-js/pbkdf2');
+var SHA3 = require('crypto-js/sha3');
+var EthUtil = require('ethereumjs-util');
 var keystore = require('./keystore');
 
 var Transaction = require('ethereumjs-tx');
@@ -955,7 +956,7 @@ var upgradeOldSerialized = function (oldSerialized, password, callback) {
 
 module.exports.upgradeOldSerialized = upgradeOldSerialized;
 
-},{"./keystore":3,"bitcore-lib":25,"bitcore-mnemonic":104,"crypto-js":198,"elliptic":235,"ethereumjs-tx":254,"scrypt-async":304,"tweetnacl":320}],7:[function(require,module,exports){
+},{"./keystore":3,"bitcore-lib":25,"bitcore-mnemonic":104,"crypto-js/aes":190,"crypto-js/pbkdf2":211,"crypto-js/sha3":219,"elliptic":235,"ethereumjs-tx":254,"ethereumjs-util":255,"scrypt-async":304,"tweetnacl":320}],7:[function(require,module,exports){
 var asn1 = exports;
 
 asn1.bignum = require('bn.js');
@@ -74909,7 +74910,5 @@ module.exports = {
     }
 })(this);
 
-},{"crypto":189}],344:[function(require,module,exports){
-arguments[4][257][0].apply(exports,arguments)
-},{"assert":22,"buffer":162,"dup":257}]},{},[1])(1)
+},{"crypto":189}]},{},[1])(1)
 });
